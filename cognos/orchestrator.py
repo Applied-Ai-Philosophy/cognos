@@ -21,6 +21,12 @@ sys.path.insert(0, str(Path(__file__).parent))
 
 from confidence import compute_confidence
 from divergence_semantics import synthesize_reason, convergence_check, frame_transform
+try:
+    from strong_synthesis import synthesize_strong, compute_epistemic_gain
+    STRONG_SYNTHESIS_AVAILABLE = True
+except ImportError:
+    STRONG_SYNTHESIS_AVAILABLE = False
+    synthesize_strong = None
 
 
 def ask_llm_groq(system: str, prompt: str, temperature: float = 0.7) -> Optional[str]:
@@ -334,27 +340,76 @@ RATIONALE: <max 20 words>"""
             
             # Layer 2: Divergence extraction (if SYNTHESIZE)
             if decision == 'synthesize':
-                self._log(f"✨ DIVERGENCE DETECTED → Analyzing assumptions...", "warning")
+                self._log(f"✨ DIVERGENCE DETECTED → Running strong synthesis...", "warning")
                 
                 # Sanitize alternatives for divergence analysis
                 clean_curr_alts = [self._strip_label_prefix(a) for a in current_alternatives]
                 
-                divergence = synthesize_reason(
-                    question=current_question,
-                    alternatives=clean_curr_alts,
-                    vote_distribution=vote_result['votes'],
-                    confidence=C,
-                    is_multimodal=vote_result.get('is_multimodal', False),
-                    context=context,
-                    llm_fn=self.llm_fn,  # Inject LLM function
-                )
+                # Use strong synthesis if available, fallback to weak
+                if STRONG_SYNTHESIS_AVAILABLE and synthesize_strong:
+                    divergence = synthesize_strong(
+                        question=current_question,
+                        alternatives=clean_curr_alts,
+                        vote_distribution=vote_result['votes'],
+                        confidence=C,
+                        context=context,
+                        llm_fn=self.llm_fn,
+                    )
+                    assumption_history.append(divergence['analysis']['core_tension'])
+                else:
+                    # Fallback to weak synthesis
+                    divergence_weak = synthesize_reason(
+                        question=current_question,
+                        alternatives=clean_curr_alts,
+                        vote_distribution=vote_result['votes'],
+                        confidence=C,
+                        is_multimodal=vote_result.get('is_multimodal', False),
+                        context=context,
+                        llm_fn=self.llm_fn,
+                    )
+                    # Wrap weak result in strong format for consistency
+                    divergence = {
+                        'question': current_question,
+                        'analysis': {
+                            'majority_assumption': divergence_weak['majority_assumption'],
+                            'minority_assumption': divergence_weak['minority_assumption'],
+                            'common_ground': divergence_weak.get('divergence_source', 'Unknown'),
+                            'core_tension': divergence_weak.get('divergence_source', 'Unknown'),
+                            'divergence_axes': [],
+                        },
+                        'integration': {
+                            'primary_strategy': divergence_weak['integration_strategy'],
+                            'strategy_details': [],
+                            'remaining_uncertainty': 'Unknown',
+                            'resource_requirement': 'Unknown',
+                            'estimated_effort': 'medium',
+                        },
+                        'meta_alternatives': {
+                            'meta_question': divergence_weak.get('meta_question'),
+                            'alternatives': [],
+                            'recommended_next_step': 'Continue with meta-question',
+                        },
+                        'epistemic_gain': {
+                            'confidence_gain': 0.0,
+                            'overall_epistemic_gain': 0.0,
+                            'interpretation': 'Fallback to weak synthesis',
+                        },
+                    }
                 
                 layer_dict['divergence'] = divergence
-                assumption_history.append(divergence['divergence_source'])
                 
-                self._log(f"  Majority assumption: {divergence['majority_assumption'][:60]}...")
-                self._log(f"  Minority assumption: {divergence['minority_assumption'][:60]}...")
-                self._log(f"  Source: {divergence['divergence_source'][:60]}...")
+                # Extract assumptions from strong format
+                maj_assumption = divergence['analysis']['majority_assumption'] if isinstance(divergence, dict) and 'analysis' in divergence else str(divergence)
+                min_assumption = divergence['analysis']['minority_assumption'] if isinstance(divergence, dict) and 'analysis' in divergence else str(divergence)
+                
+                self._log(f"  Majority: {maj_assumption[:60]}...")
+                self._log(f"  Minority: {min_assumption[:60]}...")
+                
+                if isinstance(divergence, dict) and 'analysis' in divergence:
+                    self._log(f"  Core tension: {divergence['analysis']['core_tension'][:60]}...")
+                    if divergence.get('epistemic_gain'):
+                        gain = divergence['epistemic_gain']['overall_epistemic_gain']
+                        self._log(f"  Epistemic gain: {gain:.3f} ({divergence['epistemic_gain']['interpretation'][:40]}...)")
                 
                 # Layer 3: Convergence check
                 if len(confidence_history) >= 2:
@@ -379,17 +434,40 @@ RATIONALE: <max 20 words>"""
                             'reason': conv['reason'],
                         }
                 
-                # Prepare next iteration
-                if divergence.get('meta_question'):
-                    self._log(f"  → Recursing with meta-question")
-                    current_question = divergence['meta_question']
-                    current_alternatives = [
-                        "Perspective A is better grounded",
-                        "Perspective B is better grounded",
-                        "No clear priority — equivalent",
-                    ]
+                # Prepare next iteration with meta-alternatives
+                meta_q = None
+                if isinstance(divergence, dict) and 'meta_alternatives' in divergence:
+                    meta_q = divergence['meta_alternatives'].get('meta_question')
+                    meta_alts = divergence['meta_alternatives'].get('alternatives', [])
+                elif isinstance(divergence, dict):
+                    meta_q = divergence.get('meta_question')
+                
+                if meta_q:
+                    self._log(f"  → Meta-question: {meta_q[:70]}...")
+                    current_question = meta_q
+                    
+                    # Use generated alternatives if available
+                    if isinstance(divergence, dict) and 'meta_alternatives' in divergence:
+                        meta_alts = divergence['meta_alternatives'].get('alternatives', [])
+                        if meta_alts:
+                            current_alternatives = [
+                                f"{i+1}. {alt.get('action', str(alt))}"
+                                for i, alt in enumerate(meta_alts[:3])
+                            ]
+                        else:
+                            current_alternatives = [
+                                "1. Prioritize conceptual clarity",
+                                "2. Focus on empirical precision",
+                                "3. Assess practical implications",
+                            ]
+                    else:
+                        current_alternatives = [
+                            "Perspective A stronger",
+                            "Perspective B stronger",
+                            "Equivalent weight",
+                        ]
                 else:
-                    self._log(f"  (no meta-question generated, stopping)", "warning")
+                    self._log(f"  (no meta-question; stopping recursion)", "warning")
                     break
             
             # Layer 1.5: Continue on EXPLORE

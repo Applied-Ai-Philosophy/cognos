@@ -3,7 +3,7 @@ CognOS — Epistemic Integrity Layer for Agentic AI
 
 The operating system for decision-aware AI systems.
 
-Main API:
+MAIN API:
     from cognos import cognos_reason
     
     result = cognos_reason(
@@ -12,10 +12,25 @@ Main API:
         context="Background information"
     )
 
+OR use the raw Reasoning Loop:
+
+    from cognos import ReasoningLoop
+    
+    loop = ReasoningLoop(llm_fn=your_llm, max_depth=3)
+    result = loop.run(question, alternatives, context)
+
+ARCHITECTURE (5 Meta-Levels):
+    L0: Prediction — voting + confidence calculation
+    L1: Analysis — epistemic/aleatoric uncertainty breakdown
+    L2: Assumptions — divergence semantics & extraction
+    L3: Assumptions of Assumptions — recursive meta-iteration
+    L4: Epistemic Framing — question quality detection
+    L5: Convergence — termination & stability detection
+
 This is a RECURSIVE EPISTEMOLOGY ENGINE, not just a confidence calculator.
 """
 
-__version__ = "0.3.0"
+__version__ = "0.4.0"
 __author__ = "Björn Wikström"
 __license__ = "MIT"
 
@@ -28,6 +43,9 @@ from .cognos_reason import (
     synthesis,
     convergence,
 )
+
+# Reasoning loop (raw meta-depth control)
+from .reasoning_loop import ReasoningLoop
 
 # Orchestration
 from .orchestrator import CognOSOrchestrator
@@ -87,6 +105,9 @@ __all__ = [
     "synthesis",
     "convergence",
     
+    # Raw reasoning loop (meta-depth control)
+    "ReasoningLoop",
+    
     # Orchestration
     "CognOSOrchestrator",
     
@@ -125,4 +146,5 @@ __all__ = [
     "compute_epistemic_gain",
     "STRONG_SYNTHESIS_AVAILABLE",
 ]
+
 

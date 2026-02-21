@@ -46,20 +46,115 @@ print(result['decision'])  # 'auto', 'synthesize', 'explore', or 'escalate'
 print(result['confidence'])  # 0.803
 ```
 
-## Three Layers
+## Architecture
 
-### Layer 1: Confidence Engine
+### Layer 1: Confidence Engine (`compute_confidence`)
 Combines probabilistic and semantic uncertainty into a single confidence score.
 
-### Layer 2: Divergence Semantics
-When perspectives conflict, extract *why* they differ.
+```python
+from cognos import compute_confidence
 
-### Layer 3: Convergence Control
+result = compute_confidence(
+    prediction=0.85,
+    mc_predictions=[0.84, 0.86, 0.85, 0.87],
+    ambiguity=0.1,
+    irreversibility=0.2,
+    blast_radius=0.05,
+)
+```
+
+### Layer 2: Divergence Semantics (`synthesize_reason`, `frame_transform`)
+When perspectives conflict, extract *why* they differ and detect ill-posed questions.
+
+```python
+from cognos import synthesize_reason, frame_transform
+
+# Extract underlying assumptions from divergent votes
+divergence = synthesize_reason(
+    question="Should AI systems be regulated?",
+    alternatives=["Strict control", "Light touch", "Innovation first"],
+    vote_distribution={"A": 2, "B": 2},
+    confidence=0.45,
+    is_multimodal=True,
+)
+
+# Detect if a question is well-formed
+frame = frame_transform(question="Color of Tuesday?")
+```
+
+### Layer 3: Convergence Control (`convergence_check`)
 Stop recursion when the system has converged.
+
+```python
+from cognos import convergence_check
+
+# Check if additional iterations would help
+result = convergence_check(
+    iteration=3,
+    confidence_history=[0.45, 0.50, 0.51],
+    assumption_history=["Assumption A", "Assumption A"],
+    threshold=0.05,
+)
+```
+
+## Project Structure
+
+```
+cognos-standalone/
+├── cognos/                    # Main package
+│   ├── __init__.py           # Exports: compute_confidence, synthesize_reason, ...
+│   ├── confidence.py         # Layer 1: Confidence engine
+│   ├── divergence_semantics.py # Layer 2–3: Divergence + convergence
+│   └── core/                 # Advanced implementations
+│       ├── cognos_deep.py           # Five-layer recursive analysis
+│       └── cognos_integration_demo.py # Working example
+├── research/                 # Theoretical foundation
+│   ├── HYPOTHESIS.md         # Operational definitions & falsification criteria
+│   └── INSIGHTS.md           # Theoretical insights & empirical findings
+├── experiments/              # Empirical validation
+│   ├── eval_hypothesis.py    # Run CognOS on HYPOTHESIS
+│   ├── test_cognos_*.py      # Test suites
+│   └── analyze_*.py          # Analysis scripts
+├── figures/                  # Results & visualizations
+│   ├── figure1_pareto_curves.png
+│   ├── figure2_operating_regime.png
+│   └── ...
+├── tests/                    # Unit tests
+├── examples/                 # Usage examples
+├── docs/                     # Documentation
+├── README.md                 # This file
+├── setup.py                  # PyPI setup
+└── LICENSE                   # MIT License
+```
+
+## Research Background
+
+For the theoretical foundation and empirical findings, see [research/INSIGHTS.md](research/INSIGHTS.md).
+
+**Key Findings:**
+- CognOS v2 achieves 40–60% safety gain on cost-constrained systems (40–55% escalation budget)
+- Three separable uncertainty types: U_model (internal), U_prompt (format-induced), U_problem (ill-posed)
+- Structured choice prompts reveal consensus geometry; free-form responses collapse to narrative similarity
+
+## Experiments
+
+Run the evaluation suite:
+
+```bash
+python experiments/eval_hypothesis.py
+python experiments/test_cognos_comprehensive.py
+```
+
+Generate figures from empirical results:
+
+```bash
+python experiments/analyze_pareto.py
+python experiments/analyze_ue_distribution.py
+```
 
 ## License
 
-MIT License — see LICENSE file
+MIT License — see [LICENSE](LICENSE) file
 
 ## Citation
 
@@ -72,4 +167,6 @@ MIT License — see LICENSE file
 }
 ```
 
-See docs/ for research notes and full paper draft.
+## Contributing
+
+Contributions welcome. Please file issues and PRs at [GitHub](https://github.com/bjornshomelab/cognos).

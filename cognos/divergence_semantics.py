@@ -19,7 +19,7 @@ Tre funktioner:
 import json
 import sys
 from pathlib import Path
-from typing import Optional
+from typing import Optional, Any
 
 # Try to import Jasper's ask functions; fallback to direct API if unavailable
 try:
@@ -56,6 +56,7 @@ def synthesize_reason(
     confidence: float,
     is_multimodal: bool,
     context: Optional[str] = None,
+    llm_fn: Optional[Any] = None,
 ) -> dict:
     """
     Extrahera underliggande antaganden från en divergent röstfördelning.
@@ -148,7 +149,9 @@ Svar i JSON-format (bara JSON, inget annat):
 
     system = "Du är en filosofisk analytiker. Svara ENBART med giltigt JSON, inget annat."
 
-    response_text = _call_llm(system, prompt)
+    # Use injected llm_fn, fallback to _call_llm
+    llm_to_use = llm_fn if llm_fn else _call_llm
+    response_text = llm_to_use(system, prompt)
 
     if not response_text:
         # Fallback om LLM inte tillgänglig
@@ -190,7 +193,7 @@ Svar i JSON-format (bara JSON, inget annat):
     }
 
 
-def frame_transform(question: str, confidence: float = 0.0) -> dict:
+def frame_transform(question: str, confidence: float = 0.0, llm_fn: Optional[Any] = None) -> dict:
     """
     Meta-nivå 2: Detektera om frågan själv är felställd.
 
@@ -227,7 +230,9 @@ Svar i JSON:
 
     system = "Du är logiker. Svara ENBART med giltigt JSON."
 
-    response_text = _call_llm(system, prompt)
+    # Use injected llm_fn, fallback to _call_llm
+    llm_to_use = llm_fn if llm_fn else _call_llm
+    response_text = llm_to_use(system, prompt)
 
     if not response_text:
         return {

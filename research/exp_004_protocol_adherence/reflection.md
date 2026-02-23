@@ -105,3 +105,96 @@ All four models showed moderate-to-high structural adherence. Only one (Claude) 
 2. Add Cᵢ explicitly to protocol v1.2 output template
 3. Test whether providing a worked example in the protocol improves computation adherence
 4. Consider this as Section 4.x in the epistemic-noise paper (prompt-based vs. code-based CognOS)
+
+---
+
+## Addendum — Framing Drift Under Protocol Application
+
+**Date:** 2026-02-23
+**Model:** Lechat (Mistral Large)
+**Input:** Tweet — "An AI agent that says 'I'm 94% confident' but can't show its work is not an agent — it's a slot machine with a GUI."
+
+### Observation
+
+When asked to evaluate the tweet using the CognOS protocol, Lechat produced structurally valid output (hypotheses, evidence scores, divergence, confidence, decision) with Conf = 0.88, PROCEED.
+
+However, the analysis reframed the input claim silently:
+
+| Level | Statement |
+|---|---|
+| Input (tweet) | A confidence *value* should be mathematically traceable — calibration |
+| Lechat output | AI systems should support interpretability and audit trails — XAI / regulatory compliance |
+
+The evidential sources cited (EU AI Act, XAI literature, HR Summit 2026) are valid support for the *reframed* question — not the original. Lechat's high Conf=0.88 measures the degree of consensus around XAI adoption, not the validity of the calibration argument.
+
+### Classification
+
+This is a fourth behavioral pattern, distinct from the three identified in the main experiment:
+
+| Pattern | Description |
+| --- | --- |
+| A — Confidence Simulation | Follows structure, produces plausible numbers without executing formula |
+| B — Honest Qualitative | Explicitly acknowledges it is not computing; applies protocol as scaffold |
+| C — Formula Execution | Executes mathematics correctly |
+| **D — Framing Drift** | **Executes protocol on a semantically adjacent question rather than the original** |
+
+Pattern D differs from Pattern A in that the numbers may be locally valid — the error lies upstream, in how the question is parsed before the protocol runs.
+
+### Implication for Protocol Design
+
+A model can achieve structural adherence, produce internally consistent evidence scores, and arrive at a correct decision *for the wrong question*. The protocol has no mechanism to flag when the question under analysis has been silently substituted.
+
+**Potential mitigation:** Add an explicit "Question restatement" field to the protocol output template (Section 11), requiring the model to restate the input claim before analysis. Discrepancy between input and restatement would surface framing drift.
+
+This would also function as a test of semantic fidelity independent of computational adherence.
+
+---
+
+## Addendum 2 — Protocol v1.1 vs v1.2: Lechat Re-test
+
+**Date:** 2026-02-23
+**Model:** Lechat (Mistral Large)
+**Question:** Same as Exp 004 — hospital AI deployment (92% accuracy, limited diverse validation)
+**Protocol versions compared:** v1.1 (original) vs v1.2 (Cᵢ + QUESTION RESTATEMENT added)
+
+### Structural Improvements
+
+| Metric | v1.1 | v1.2 |
+| --- | --- | --- |
+| QUESTION RESTATEMENT present | No | **Yes** ✓ |
+| Cᵢ column in EVIDENCE SCORES | No | **Yes** ✓ |
+| Confidence formula shown | No (0.68, no calculation) | Partial: `sigmoid(0.80 − 0.65 − 0.52 − 0.36)` |
+| D value | 0.08 (implausibly low) | 0.65 (more realistic) |
+| Reported Conf | 0.68 | 0.62 |
+
+### Computational Verification (v1.2)
+
+Protocol values stated: Ē = 0.80, D = 0.65, Q_A = 0.75 → U_A = 0.25, M = 0.60
+
+```text
+Correct:   γ·U_A = 0.8 × 0.25 = 0.20
+Lechat:    γ·U_A = 0.52          ← fabricated, does not match Q_A = 0.75
+
+Correct:   sigmoid(0.80 − 0.65 − 0.20 − 0.36) = sigmoid(−0.41) ≈ 0.40
+Lechat:    sigmoid(0.80 − 0.65 − 0.52 − 0.36) ≈ 0.62
+           — two errors: wrong γ·U_A, and sigmoid(−0.73) ≈ 0.33, not 0.62
+```
+
+Error: reported Conf 0.62 vs computed ~0.40. The formula is displayed but not executed.
+
+### Assessment
+
+v1.2 successfully improved **structural adherence**: all three new protocol requirements (QUESTION RESTATEMENT, Cᵢ column, formula display) were followed. The D value also became more realistic (0.65 vs 0.08).
+
+However, **computational adherence** did not improve. Lechat remains Pattern A — confidence simulation. The model now shows the formula as a display element without executing the arithmetic. The γ·U_A term was substituted with an inconsistent value (0.52), and the final sigmoid result does not match even the substituted inputs.
+
+### Implication
+
+Protocol v1.2 closes the structural compliance gap identified in Exp 004. It does not close the computational compliance gap. This suggests the two compliance types require different interventions:
+
+| Gap | v1.2 fix | Result |
+| --- | --- | --- |
+| Structural (missing fields) | Explicit output template rows | Resolved ✓ |
+| Computational (wrong math) | "Show your work" instruction | Not resolved |
+
+A worked example embedded in the protocol (Next Step 3 from Exp 004) remains the untested intervention for computational adherence.

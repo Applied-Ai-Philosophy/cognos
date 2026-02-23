@@ -185,7 +185,13 @@ RATIONALE: <brief>"""
         p = votes[majority] / len(choices)
         
         # Compute confidence
-        mc_predictions = confidences if confidences else [p] * max(4, len(choices))
+        # Ensure we have at least 4 predictions for confidence calculation
+        if len(confidences) < 4:
+            # Pad with p value to reach minimum 4 samples
+            mc_predictions = confidences + [p] * (4 - len(confidences))
+        else:
+            mc_predictions = confidences
+        
         conf_result = compute_confidence(p, mc_predictions)
         
         iteration = MetaIteration(
@@ -310,7 +316,7 @@ RATIONALE: <brief>"""
             self._log(depth, f"Frame issue: {frame.get('problem_type', 'unknown')}", "warning")
             if frame.get('specific_issues'):
                 for issue in frame['specific_issues'][:2]:
-                    self._log(depth, f"  - {issue[:60]}...", "warning")
+                    self._log(depth, f"  - {str(issue)[:60]}...", "warning")
         
         return iteration
     

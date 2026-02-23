@@ -1,4 +1,4 @@
-# CognOS — Epistemic Integrity Layer for Agentic AI
+# CognOS — Reasoning Layer for Agentic AI
 
 ![Status](https://img.shields.io/badge/Status-Active_Research-success)
 ![License](https://img.shields.io/badge/License-MIT-blue)
@@ -6,18 +6,18 @@
 [![Paper](https://img.shields.io/badge/DOI-10.5281%2Fzenodo.18731535-blue)](https://doi.org/10.5281/zenodo.18731535)
 [![ORCID](https://img.shields.io/badge/ORCID-0009--0000--4015--2357-green)](https://orcid.org/0009-0000-4015-2357)
 
-> **Externalized metacognition for AI agents**
-> Know when you know — and when to ask for help
+> **The Reasoning Layer for agentic AI**
+> Know when to act, when to escalate, when to ask
 
 ---
 
 ## 🎯 What is CognOS?
 
-CognOS answers a fundamental question in autonomous AI design:
+Every AI stack has a Frontend, a Retrieval Layer, a Prompt Engineering layer, and an LLM. None of them answer the question that matters most for autonomous agents:
 
-> *When should an AI system act autonomously — and when should it escalate to humans?*
+> *Should I act on this — or stop and ask?*
 
-Instead of binary auto/escalate decisions, CognOS provides four nuanced decision types by combining epistemic and aleatoric uncertainty into a single confidence score:
+CognOS is the **Reasoning Layer** that sits between LLM output and agent action. Instead of binary auto/escalate decisions, it provides four nuanced decision types by combining epistemic and aleatoric uncertainty into a single confidence score:
 
 | Decision | Condition | Action |
 | -------- | --------- | ------ |
@@ -207,7 +207,7 @@ python experiments/analyze_ue_distribution.py
 
 ```bibtex
 @software{wikstrom2026cognos,
-  title={CognOS: Epistemic Integrity Layer for Agentic AI},
+  title={CognOS: Reasoning Layer for Agentic AI},
   author={Wikström, Björn},
   year={2026},
   url={https://github.com/Applied-Ai-Philosophy/cognos},
